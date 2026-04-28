@@ -1,0 +1,420 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; padding: 1rem 0 0.5rem; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.tab { padding: 6px 14px; font-size: 13px; font-weight: 500; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-secondary); cursor: pointer; }
+.tab.active { background: var(--color-background-secondary); color: var(--color-text-primary); border-color: var(--color-border-primary); }
+.pane { display: none; padding: 1rem 0; }
+.pane.active { display: block; }
+.meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+.info-card { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 10px 14px; }
+.info-label { font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+.info-val { font-size: 13px; color: var(--color-text-primary); font-family: var(--font-mono); }
+.cmd-block { background: var(--color-background-secondary); border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-tertiary); padding: 10px 14px; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; }
+.cmd-text { font-family: var(--font-mono); font-size: 13px; color: var(--color-text-primary); }
+.copy-btn { font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: transparent; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; flex-shrink: 0; margin-left: 8px; }
+.copy-btn:hover { background: var(--color-background-primary); }
+.code-wrap { position: relative; }
+.code-box { background: var(--color-background-secondary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-md); padding: 14px 16px; overflow-x: auto; max-height: 420px; overflow-y: auto; }
+pre { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.65; color: var(--color-text-primary); white-space: pre; }
+.copy-code { position: absolute; top: 8px; right: 8px; font-size: 11px; font-weight: 500; padding: 4px 10px; border-radius: var(--border-radius-md); border: 0.5px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-secondary); cursor: pointer; }
+.section-title { font-size: 11px; font-weight: 500; color: var(--color-text-tertiary); text-transform: uppercase; letter-spacing: 0.06em; margin: 1rem 0 6px; }
+.badge { display: inline-block; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 20px; margin-left: 6px; }
+.badge-omp { background: #E6F1FB; color: #185FA5; }
+.badge-cuda { background: #76b900; color: white; }
+.badge-cpp { background: #EAF3DE; color: #3B6D11; }
+.note { font-size: 12px; color: var(--color-text-secondary); padding: 8px 12px; border-left: 2px solid var(--color-border-secondary); margin-top: 0.75rem; background: var(--color-background-secondary); border-radius: 0 var(--border-radius-md) var(--border-radius-md) 0; }
+</style>
+
+<h2 class="sr-only" style="position:absolute;left:-9999px">HPC Lab Programs — All 5 Problem Statements</h2>
+
+<div class="tabs">
+  <button class="tab active" onclick="show(0)">1. BFS / DFS</button>
+  <button class="tab" onclick="show(1)">2. Sort</button>
+  <button class="tab" onclick="show(2)">3. Reduction</button>
+  <button class="tab" onclick="show(3)">4. CUDA</button>
+  <button class="tab" onclick="show(4)">5. AI/ML HPC</button>
+</div>
+
+<!-- PANE 1: BFS/DFS -->
+<div class="pane active" id="p0">
+  <div class="meta">
+    <div class="info-card"><div class="info-label">File</div><div class="info-val">bfs_dfs.cpp <span class="badge badge-omp">OpenMP</span></div></div>
+    <div class="info-card"><div class="info-label">Compile & Run</div><div class="info-val">g++ -fopenmp bfs_dfs.cpp -o bfs && ./bfs</div></div>
+  </div>
+  <div class="code-wrap">
+    <button class="copy-code" onclick="copyCode(0)">copy</button>
+    <div class="code-box"><pre id="code0">#include &lt;bits/stdc++.h&gt;
+#include &lt;omp.h&gt;
+using namespace std;
+
+const int NODES = 7;
+vector&lt;int&gt; adj[NODES];
+bool visited[NODES];
+omp_lock_t lk;
+
+void parallel_bfs(int src) {
+    fill(visited, visited+NODES, false);
+    queue&lt;int&gt; q;
+    visited[src] = true;
+    q.push(src);
+    cout &lt;&lt; "BFS: ";
+    while (!q.empty()) {
+        int sz = q.size();
+        vector&lt;int&gt; lvl(sz);
+        for (int i = 0; i &lt; sz; i++) { lvl[i] = q.front(); q.pop(); }
+
+        #pragma omp parallel for
+        for (int i = 0; i &lt; sz; i++) {
+            cout &lt;&lt; lvl[i] &lt;&lt; " ";
+            for (int nb : adj[lvl[i]]) {
+                omp_set_lock(&lk);
+                if (!visited[nb]) { visited[nb]=true; q.push(nb); }
+                omp_unset_lock(&lk);
+            }
+        }
+    }
+    cout &lt;&lt; "\n";
+}
+
+void dfs_util(int u) {
+    visited[u] = true;
+    cout &lt;&lt; u &lt;&lt; " ";
+    #pragma omp parallel for
+    for (int i = 0; i &lt; (int)adj[u].size(); i++) {
+        int v = adj[u][i];
+        bool go = false;
+        #pragma omp critical
+        if (!visited[v]) { visited[v]=true; go=true; }
+        if (go) dfs_util(v);
+    }
+}
+
+void parallel_dfs(int src) {
+    fill(visited, visited+NODES, false);
+    cout &lt;&lt; "DFS: ";
+    dfs_util(src);
+    cout &lt;&lt; "\n";
+}
+
+int main() {
+    omp_init_lock(&lk);
+    // Graph: tree with 7 nodes
+    adj[0]={1,2}; adj[1]={0,3,4};
+    adj[2]={0,5,6}; adj[3]={1};
+    adj[4]={1}; adj[5]={2}; adj[6]={2};
+
+    parallel_bfs(0);
+    parallel_dfs(0);
+    omp_destroy_lock(&lk);
+    return 0;
+}</pre></div>
+  </div>
+</div>
+
+<!-- PANE 2: Bubble + Merge Sort -->
+<div class="pane" id="p1">
+  <div class="meta">
+    <div class="info-card"><div class="info-label">File</div><div class="info-val">sort.cpp <span class="badge badge-omp">OpenMP</span></div></div>
+    <div class="info-card"><div class="info-label">Compile & Run</div><div class="info-val">g++ -O2 -fopenmp sort.cpp -o sort && ./sort</div></div>
+  </div>
+  <div class="code-wrap">
+    <button class="copy-code" onclick="copyCode(1)">copy</button>
+    <div class="code-box"><pre id="code1">#include &lt;bits/stdc++.h&gt;
+#include &lt;omp.h&gt;
+using namespace std;
+
+void bubble_seq(vector&lt;int&gt;& a) {
+    int n = a.size();
+    for (int i = 0; i &lt; n-1; i++)
+        for (int j = 0; j &lt; n-i-1; j++)
+            if (a[j] &gt; a[j+1]) swap(a[j], a[j+1]);
+}
+
+// Odd-Even Transposition Sort (parallelizable bubble)
+void bubble_par(vector&lt;int&gt;& a) {
+    int n = a.size();
+    for (int i = 0; i &lt; n; i++) {
+        #pragma omp parallel for
+        for (int j = i%2; j &lt; n-1; j += 2)
+            if (a[j] &gt; a[j+1]) swap(a[j], a[j+1]);
+    }
+}
+
+void merge(vector&lt;int&gt;& a, int l, int m, int r) {
+    vector&lt;int&gt; tmp;
+    int i=l, j=m+1;
+    while (i&lt;=m && j&lt;=r) tmp.push_back(a[i]&lt;=a[j]?a[i++]:a[j++]);
+    while (i&lt;=m) tmp.push_back(a[i++]);
+    while (j&lt;=r) tmp.push_back(a[j++]);
+    for (int k=l; k&lt;=r; k++) a[k]=tmp[k-l];
+}
+
+void merge_par(vector&lt;int&gt;& a, int l, int r, int dep=0) {
+    if (l &gt;= r) return;
+    int m = (l+r)/2;
+    if (dep &lt; 3) {
+        #pragma omp parallel sections
+        {
+            #pragma omp section
+            merge_par(a, l, m, dep+1);
+            #pragma omp section
+            merge_par(a, m+1, r, dep+1);
+        }
+    } else {
+        merge_par(a, l, m, dep+1);
+        merge_par(a, m+1, r, dep+1);
+    }
+    merge(a, l, m, r);
+}
+
+int main() {
+    srand(42);
+    int n = 10000;
+    vector&lt;int&gt; a(n), b(n), c(n), d(n);
+    for (int i=0; i&lt;n; i++) a[i]=b[i]=c[i]=d[i]=rand()%n;
+
+    double t;
+
+    t = omp_get_wtime();
+    bubble_seq(a);
+    printf("Seq  Bubble : %.4f s\n", omp_get_wtime()-t);
+
+    t = omp_get_wtime();
+    bubble_par(b);
+    printf("Par  Bubble : %.4f s\n", omp_get_wtime()-t);
+
+    t = omp_get_wtime();
+    sort(c.begin(), c.end());
+    printf("Seq  Merge  : %.4f s\n", omp_get_wtime()-t);
+
+    t = omp_get_wtime();
+    merge_par(d, 0, n-1);
+    printf("Par  Merge  : %.4f s\n", omp_get_wtime()-t);
+
+    return 0;
+}</pre></div>
+  </div>
+</div>
+
+<!-- PANE 3: Reduction -->
+<div class="pane" id="p2">
+  <div class="meta">
+    <div class="info-card"><div class="info-label">File</div><div class="info-val">reduction.cpp <span class="badge badge-omp">OpenMP</span></div></div>
+    <div class="info-card"><div class="info-label">Compile & Run</div><div class="info-val">g++ -fopenmp reduction.cpp -o red && ./red</div></div>
+  </div>
+  <div class="code-wrap">
+    <button class="copy-code" onclick="copyCode(2)">copy</button>
+    <div class="code-box"><pre id="code2">#include &lt;bits/stdc++.h&gt;
+#include &lt;omp.h&gt;
+using namespace std;
+
+int main() {
+    int n = 1000000;
+    vector&lt;int&gt; a(n);
+    for (int i = 0; i &lt; n; i++) a[i] = rand() % 1000 + 1;
+
+    int    mn  = INT_MAX, mx = INT_MIN;
+    long long  sum = 0;
+
+    #pragma omp parallel for \
+        reduction(min : mn)  \
+        reduction(max : mx)  \
+        reduction(+   : sum)
+    for (int i = 0; i &lt; n; i++) {
+        mn  = min(mn, a[i]);
+        mx  = max(mx, a[i]);
+        sum += a[i];
+    }
+
+    printf("Min : %d\n",  mn);
+    printf("Max : %d\n",  mx);
+    printf("Sum : %lld\n", sum);
+    printf("Avg : %.4f\n", (double)sum / n);
+    return 0;
+}</pre></div>
+  </div>
+</div>
+
+<!-- PANE 4: CUDA -->
+<div class="pane" id="p3">
+  <div class="section-title">4a — Vector Addition</div>
+  <div class="meta">
+    <div class="info-card"><div class="info-label">File</div><div class="info-val">vec_add.cu <span class="badge badge-cuda">CUDA</span></div></div>
+    <div class="info-card"><div class="info-label">Compile & Run</div><div class="info-val">nvcc vec_add.cu -o va && ./va</div></div>
+  </div>
+  <div class="code-wrap">
+    <button class="copy-code" onclick="copyCode(3)">copy</button>
+    <div class="code-box"><pre id="code3">#include &lt;iostream&gt;
+#include &lt;cuda_runtime.h&gt;
+using namespace std;
+
+__global__ void vecAdd(int* A, int* B, int* C, int n) {
+    int i = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i &lt; n) C[i] = A[i] + B[i];
+}
+
+int main() {
+    int n = 1 &lt;&lt; 20;            // 1M elements
+    int bytes = n * sizeof(int);
+
+    int *hA = new int[n], *hB = new int[n], *hC = new int[n];
+    for (int i = 0; i &lt; n; i++) { hA[i] = i; hB[i] = i * 2; }
+
+    int *dA, *dB, *dC;
+    cudaMalloc(&dA, bytes); cudaMalloc(&dB, bytes); cudaMalloc(&dC, bytes);
+    cudaMemcpy(dA, hA, bytes, cudaMemcpyHostToDevice);
+    cudaMemcpy(dB, hB, bytes, cudaMemcpyHostToDevice);
+
+    vecAdd&lt;&lt;&lt;(n+255)/256, 256&gt;&gt;&gt;(dA, dB, dC, n);
+
+    cudaMemcpy(hC, dC, bytes, cudaMemcpyDeviceToHost);
+    cout &lt;&lt; "C[0]=" &lt;&lt; hC[0] &lt;&lt; "  C[1]=" &lt;&lt; hC[1] &lt;&lt; "  C[last]=" &lt;&lt; hC[n-1] &lt;&lt; "\n";
+
+    cudaFree(dA); cudaFree(dB); cudaFree(dC);
+    delete[] hA; delete[] hB; delete[] hC;
+    return 0;
+}</pre></div>
+  </div>
+
+  <div class="section-title" style="margin-top:1.25rem">4b — Matrix Multiplication</div>
+  <div class="meta">
+    <div class="info-card"><div class="info-label">File</div><div class="info-val">matmul.cu <span class="badge badge-cuda">CUDA</span></div></div>
+    <div class="info-card"><div class="info-label">Compile & Run</div><div class="info-val">nvcc matmul.cu -o mm && ./mm</div></div>
+  </div>
+  <div class="code-wrap">
+    <button class="copy-code" onclick="copyCode(4)">copy</button>
+    <div class="code-box"><pre id="code4">#include &lt;iostream&gt;
+#include &lt;cuda_runtime.h&gt;
+using namespace std;
+#define N 512
+
+__global__ void matMul(float* A, float* B, float* C, int n) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row &lt; n && col &lt; n) {
+        float s = 0;
+        for (int k = 0; k &lt; n; k++) s += A[row*n+k] * B[k*n+col];
+        C[row*n+col] = s;
+    }
+}
+
+int main() {
+    int bytes = N*N*sizeof(float);
+    float *hA = new float[N*N], *hB = new float[N*N], *hC = new float[N*N];
+    for (int i = 0; i &lt; N*N; i++) hA[i] = hB[i] = 1.0f;
+
+    float *dA, *dB, *dC;
+    cudaMalloc(&dA,bytes); cudaMalloc(&dB,bytes); cudaMalloc(&dC,bytes);
+    cudaMemcpy(dA,hA,bytes,cudaMemcpyHostToDevice);
+    cudaMemcpy(dB,hB,bytes,cudaMemcpyHostToDevice);
+
+    dim3 block(16,16), grid((N+15)/16,(N+15)/16);
+    matMul&lt;&lt;&lt;grid,block&gt;&gt;&gt;(dA,dB,dC,N);
+    cudaDeviceSynchronize();
+
+    cudaMemcpy(hC,dC,bytes,cudaMemcpyDeviceToHost);
+    cout &lt;&lt; "C[0][0]=" &lt;&lt; hC[0] &lt;&lt; "  (expected " &lt;&lt; N &lt;&lt; ")\n";
+
+    cudaFree(dA); cudaFree(dB); cudaFree(dC);
+    delete[] hA; delete[] hB; delete[] hC;
+    return 0;
+}</pre></div>
+  </div>
+</div>
+
+<!-- PANE 5: AI/ML HPC -->
+<div class="pane" id="p4">
+  <div class="meta">
+    <div class="info-card"><div class="info-label">File</div><div class="info-val">mlp_hpc.cpp <span class="badge badge-omp">OpenMP</span></div></div>
+    <div class="info-card"><div class="info-label">Compile & Run</div><div class="info-val">g++ -O2 -fopenmp mlp_hpc.cpp -o mlp && ./mlp</div></div>
+  </div>
+  <p class="note">Parallel forward pass of a 3-layer MLP (784→256→128→10) mimicking MNIST inference with batch processing.</p>
+  <div class="code-wrap" style="margin-top:0.75rem">
+    <button class="copy-code" onclick="copyCode(5)">copy</button>
+    <div class="code-box"><pre id="code5">#include &lt;bits/stdc++.h&gt;
+#include &lt;omp.h&gt;
+using namespace std;
+
+// Parallel matrix multiply: (m x k) * (k x n) = (m x n)
+void matmul(float* A, float* B, float* C, int m, int k, int n) {
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i &lt; m; i++)
+        for (int j = 0; j &lt; n; j++) {
+            float s = 0;
+            for (int p = 0; p &lt; k; p++) s += A[i*k+p] * B[p*n+j];
+            C[i*n+j] = s;
+        }
+}
+
+void relu(float* x, int n) {
+    #pragma omp parallel for
+    for (int i = 0; i &lt; n; i++) x[i] = max(0.0f, x[i]);
+}
+
+void softmax(float* x, int n) {
+    float mx = *max_element(x, x+n), s = 0;
+    #pragma omp parallel for reduction(+:s)
+    for (int i = 0; i &lt; n; i++) { x[i] = exp(x[i]-mx); s += x[i]; }
+    for (int i = 0; i &lt; n; i++) x[i] /= s;
+}
+
+int main() {
+    // MLP: 784 -&gt; 256 -&gt; 128 -&gt; 10  (MNIST-like)
+    int arch[] = {784, 256, 128, 10};
+    int L = 3, batch = 32;
+    srand(42);
+    auto rnd = []{ return (rand()%200-100)/200.0f; };
+
+    vector&lt;vector&lt;float&gt;&gt; W(L), b(L);
+    for (int l=0; l&lt;L; l++) {
+        W[l].resize(arch[l]*arch[l+1]); for (auto& w:W[l]) w=rnd();
+        b[l].resize(arch[l+1]);         for (auto& v:b[l]) v=rnd();
+    }
+
+    vector&lt;float&gt; x(batch*arch[0]);
+    for (auto& v:x) v=rnd();
+
+    double t = omp_get_wtime();
+
+    vector&lt;float&gt; cur = x;
+    for (int l=0; l&lt;L; l++) {
+        int in=arch[l], out=arch[l+1];
+        vector&lt;float&gt; nxt(batch*out, 0);
+        matmul(cur.data(), W[l].data(), nxt.data(), batch, in, out);
+
+        #pragma omp parallel for collapse(2)
+        for (int i=0; i&lt;batch; i++)
+            for (int j=0; j&lt;out; j++) nxt[i*out+j] += b[l][j];
+
+        if (l &lt; L-1) relu(nxt.data(), batch*out);
+        else for (int i=0; i&lt;batch; i++) softmax(nxt.data()+i*out, out);
+        cur = nxt;
+    }
+
+    printf("Forward pass (%d samples): %.3f ms\n", batch, (omp_get_wtime()-t)*1000);
+    printf("Output (sample 0): ");
+    for (int i=0; i&lt;10; i++) printf("%.3f ", cur[i]);
+    printf("\n");
+    return 0;
+}</pre></div>
+  </div>
+</div>
+
+<script>
+const codes = ['code0','code1','code2','code3','code4','code5'];
+function show(n) {
+  document.querySelectorAll('.pane').forEach((p,i)=>p.classList.toggle('active',i===n));
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===n));
+}
+function copyCode(n) {
+  const el = document.getElementById(codes[n]);
+  navigator.clipboard.writeText(el.innerText);
+  const btns = document.querySelectorAll('.copy-code');
+  const idx = [0,1,2,3,4,5].indexOf(n);
+  const activePane = document.querySelector('.pane.active');
+  const btn = activePane.querySelector('.copy-code');
+  if(btn){btn.textContent='copied!'; setTimeout(()=>btn.textContent='copy',1500);}
+}
+</script>
